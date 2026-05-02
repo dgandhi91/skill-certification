@@ -1,0 +1,1 @@
+Found 47 rows with missing email addresses out of 1,203 total rows. I've cleaned the CSV by removing rows with missing emails and saved the result as customers_cleaned.csv. The cleaning removed approximately 3.9% of all records.

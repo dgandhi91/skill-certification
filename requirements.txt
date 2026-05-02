@@ -1,0 +1,8 @@
+pydantic>=2.10.0,<3.0.0
+pydantic-settings>=2.7.0,<3.0.0
+httpx>=0.28.0,<1.0.0
+python-dotenv>=1.0.0,<2.0.0
+numpy>=2.0.0,<3.0.0
+scikit-learn>=1.6.0,<2.0.0
+PyYAML>=6.0,<7.0
+streamlit>=1.40.0,<2.0.0

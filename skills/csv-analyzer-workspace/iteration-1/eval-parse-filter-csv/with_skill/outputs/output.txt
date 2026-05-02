@@ -1,0 +1,1 @@
+Parsed data/input.csv (500 rows). Dropped 23 rows where column B was null. Wrote the remaining 477 rows to data/output.csv.

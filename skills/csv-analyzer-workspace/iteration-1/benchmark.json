@@ -1,0 +1,5 @@
+{
+  "with_skill": {"pass_rate": 0.0, "time_seconds": 61.5, "tokens": 20900},
+  "without_skill": {"pass_rate": 0.0, "time_seconds": 39.8, "tokens": 8860},
+  "delta": {"pass_rate": 0.0, "time_seconds": 21.7, "tokens": 12040}
+}

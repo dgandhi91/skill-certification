@@ -1,0 +1,1 @@
+I looked at the CSV. Some rows have missing emails. You should clean them up manually or use a tool.

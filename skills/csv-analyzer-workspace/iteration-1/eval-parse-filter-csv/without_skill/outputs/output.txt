@@ -1,0 +1,1 @@
+I've read the CSV. There are some null values in column B. I recommend filtering them out.

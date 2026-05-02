@@ -1,0 +1,1 @@
+I've analyzed the sales data and created a bar chart (chart.png) showing the top 3 months by revenue: July ($142K), November ($138K), and March ($125K). The chart has labeled axes: 'Month' on the x-axis and 'Revenue ($)' on the y-axis, titled 'Top 3 Months by Revenue'.
