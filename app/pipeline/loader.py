@@ -108,9 +108,7 @@ def _derive_slug(prompt: str) -> str:
     return "-".join(tokens)[:64]
 
 
-def _load_eval_run(
-    run_dir: Path, eval_id: int, prompt: str
-) -> EvalRunOutput:
+def _load_eval_run(run_dir: Path, eval_id: int, prompt: str) -> EvalRunOutput:
     timing = TimingData()
     timing_path = run_dir / "timing.json"
     if timing_path.is_file():
@@ -159,7 +157,9 @@ def _load_all_runs(
         slug = eval_dir.name[5:]
         eval_id = slug_map.get(slug)
         if eval_id is None:
-            logger.warning("No eval case matches slug '%s', skipping %s", slug, eval_dir)
+            logger.warning(
+                "No eval case matches slug '%s', skipping %s", slug, eval_dir
+            )
             continue
 
         run_dir = eval_dir / condition

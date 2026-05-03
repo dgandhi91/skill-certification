@@ -7,13 +7,16 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from app.core.models import (
-    CertificationDecision,
-    Tier,
-)
-from app.evaluation.judge import GeminiJudge
+from app.core.models import CertificationDecision, Tier
 from app.evaluation.metrics import run_full_evaluation
-from app.evaluation.scoring import STAGE_4_WEIGHTS, STAGE_WEIGHTS, TIER_THRESHOLDS, compute_final_score, determine_tier
+from app.evaluation.providers import create_judge
+from app.evaluation.scoring import (
+    STAGE_4_WEIGHTS,
+    STAGE_WEIGHTS,
+    TIER_THRESHOLDS,
+    compute_final_score,
+    determine_tier,
+)
 from app.evaluation.validation import validate_skill
 from app.pipeline.loader import WorkspaceData, load_workspace
 from app.pipeline.registry import RegistryStore, check_overlap
@@ -24,7 +27,6 @@ from app.pipeline.results_store import (
     load_results,
     save_results,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +42,25 @@ class LogCaptureHandler(logging.Handler):
 
 async def run_pipeline(data: WorkspaceData) -> PipelineResults:
     handler = LogCaptureHandler()
-    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s", datefmt="%H:%M:%S"))
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s — %(message)s", datefmt="%H:%M:%S"
+        )
+    )
     app_logger = logging.getLogger("app")
     app_logger.setLevel(logging.INFO)
     app_logger.addHandler(handler)
 
     store = RegistryStore()
-    judge = GeminiJudge()
+    judge = create_judge()
 
     try:
-        logger.info("Stage 1: Loading complete — skill '%s', %d evals, %d with_runs", data.skill.name, len(data.dataset.evals), len(data.with_runs))
+        logger.info(
+            "Stage 1: Loading complete — skill '%s', %d evals, %d with_runs",
+            data.skill.name,
+            len(data.dataset.evals),
+            len(data.with_runs),
+        )
 
         logger.info("Stage 2: Contract validation")
         validation = await validate_skill(data.skill, data.dataset, judge)
@@ -70,7 +81,11 @@ async def run_pipeline(data: WorkspaceData) -> PipelineResults:
 
         logger.info("Stage 3: Registry overlap check")
         overlap = await check_overlap(data.skill, store)
-        logger.info("Overlap check done — similarity=%.4f overlap=%s", overlap.similarity_score, overlap.overlap)
+        logger.info(
+            "Overlap check done — similarity=%.4f overlap=%s",
+            overlap.similarity_score,
+            overlap.overlap,
+        )
 
         cases = data.dataset.evals
         logger.info("Stage 4: Evaluation engine (%d cases)", len(cases))
@@ -89,9 +104,13 @@ async def run_pipeline(data: WorkspaceData) -> PipelineResults:
             )
 
         logger.info("Stage 5: Scoring & certification decision")
-        scores = compute_final_score(skill=data.skill, validation=validation, overlap=overlap, ev=eval_result)
+        scores = compute_final_score(
+            skill=data.skill, validation=validation, overlap=overlap, ev=eval_result
+        )
         tier, reasons = determine_tier(eval_result, final_score=scores["final"])
-        logger.info("Certification result: tier=%s certified=%s", tier.value, tier != Tier.FAIL)
+        logger.info(
+            "Certification result: tier=%s certified=%s", tier.value, tier != Tier.FAIL
+        )
         decision = CertificationDecision(
             certified=tier != Tier.FAIL,
             tier=tier,
@@ -115,7 +134,9 @@ async def run_pipeline(data: WorkspaceData) -> PipelineResults:
 # --- Rendering Helpers ---
 
 
-def metric_color(value: float, thresholds: list[float], higher_is_better: bool = True) -> str:
+def metric_color(
+    value: float, thresholds: list[float], higher_is_better: bool = True
+) -> str:
     if higher_is_better:
         if value >= thresholds[0]:
             return "green"
@@ -130,7 +151,13 @@ def metric_color(value: float, thresholds: list[float], higher_is_better: bool =
         return "red"
 
 
-def render_metric(label: str, value: float, fmt: str = ".3f", thresholds: list[float] | None = None, higher_is_better: bool = True):
+def render_metric(
+    label: str,
+    value: float,
+    fmt: str = ".3f",
+    thresholds: list[float] | None = None,
+    higher_is_better: bool = True,
+):
     color = "gray"
     if thresholds:
         color = metric_color(value, thresholds, higher_is_better)
@@ -207,7 +234,9 @@ def page_pipeline(skill_options: list[str], workspace_options: list[str]):
         if workspace_options:
             workspace_dir = st.selectbox("Workspace Directory", workspace_options)
         else:
-            workspace_dir = st.text_input("Workspace Directory", value="skills/csv-analyzer-workspace")
+            workspace_dir = st.text_input(
+                "Workspace Directory", value="skills/csv-analyzer-workspace"
+            )
 
         iteration_options = discover_iterations(workspace_dir)
         if len(iteration_options) > 1:
@@ -240,10 +269,14 @@ def page_pipeline(skill_options: list[str], workspace_options: list[str]):
         else:
             load_btn = False
             clear_btn = False
-            run_btn = st.button("Run Certification", type="primary", use_container_width=True)
+            run_btn = st.button(
+                "Run Certification", type="primary", use_container_width=True
+            )
 
     if not run_btn and not load_btn:
-        st.info("Configure the skill and workspace paths in the sidebar, then click **Run Certification**.")
+        st.info(
+            "Configure the skill and workspace paths in the sidebar, then click **Run Certification**."
+        )
         st.stop()
 
     # --- Load workspace data (always needed for Skill Overview) ---
@@ -272,7 +305,9 @@ def page_pipeline(skill_options: list[str], workspace_options: list[str]):
     _render_pipeline_stages(results, data)
 
 
-def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None = None):
+def _render_pipeline_stages(
+    results: PipelineResults, data: WorkspaceData | None = None
+):
     # ================================================================
     # Stage 1 — Skill Definition
     # ================================================================
@@ -294,15 +329,23 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
                     st.markdown(f"**Compatibility:** {data.skill.compatibility}")
             with col2:
                 positive = sum(1 for e in data.dataset.evals if e.expected_output)
-                negative = sum(1 for e in data.dataset.evals if not e.expected_output and e.category != "adversarial")
-                adversarial = sum(1 for e in data.dataset.evals if e.category == "adversarial")
+                negative = sum(
+                    1
+                    for e in data.dataset.evals
+                    if not e.expected_output and e.category != "adversarial"
+                )
+                adversarial = sum(
+                    1 for e in data.dataset.evals if e.category == "adversarial"
+                )
                 st.metric("Total Eval Cases", len(data.dataset.evals))
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Positive", positive)
                 c2.metric("Negative", negative)
                 c3.metric("Adversarial", adversarial)
                 st.markdown(f"**With-skill runs:** {len(data.with_runs)}")
-                st.markdown(f"**Without-skill runs:** {len(data.without_runs) if data.without_runs else 0}")
+                st.markdown(
+                    f"**Without-skill runs:** {len(data.without_runs) if data.without_runs else 0}"
+                )
         elif results.evaluation:
             st.markdown(f"**Name:** `{results.evaluation.skill_name}`")
         else:
@@ -339,25 +382,73 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
         risk_level = risk_flag.split(": ", 1)[1] if risk_flag else "Low"
 
         ambiguity_reasons = "; ".join(f for f in v.flags if "ambiguity" in f.lower())
-        red_flag_reasons = "; ".join(f.split("Red flag: ", 1)[1] for f in v.flags if f.startswith("Red flag:"))
-        provenance_reasons = "; ".join(f.split("Provenance: ", 1)[1] for f in v.flags if f.startswith("Provenance:"))
-        injection_reasons = "; ".join(f.split("Prompt injection pattern detected: ", 1)[1] for f in v.flags if f.startswith("Prompt injection"))
-        permission_reasons = "; ".join(f.split("Permission scope: ", 1)[1] for f in v.flags if f.startswith("Permission scope:"))
+        red_flag_reasons = "; ".join(
+            f.split("Red flag: ", 1)[1] for f in v.flags if f.startswith("Red flag:")
+        )
+        provenance_reasons = "; ".join(
+            f.split("Provenance: ", 1)[1]
+            for f in v.flags
+            if f.startswith("Provenance:")
+        )
+        injection_reasons = "; ".join(
+            f.split("Prompt injection pattern detected: ", 1)[1]
+            for f in v.flags
+            if f.startswith("Prompt injection")
+        )
+        permission_reasons = "; ".join(
+            f.split("Permission scope: ", 1)[1]
+            for f in v.flags
+            if f.startswith("Permission scope:")
+        )
 
-        checks_df = pd.DataFrame([
-            {"Check": "Skill description clarity", "Status": "PASS" if no_ambiguity else "WARN", "Type": "Advisory", "Reason": ambiguity_reasons or "—"},
-            {"Check": "Security risk level", "Status": risk_level, "Type": "Advisory", "Reason": f"Based on {len([f for f in v.flags if f.startswith('Red flag:')])} red flag(s), {len([f for f in v.flags if f.startswith('Provenance:')])} provenance issue(s), {len([f for f in v.flags if f.startswith('Permission scope:')])} permission issue(s), {len([f for f in v.flags if f.startswith('Prompt injection')])} injection(s)"},
-            {"Check": "  Red flags", "Status": "PASS" if no_red_flags else "FAIL", "Type": "Required", "Reason": red_flag_reasons or "—"},
-            {"Check": "  Author provenance", "Status": "PASS" if provenance_ok else "WARN", "Type": "Advisory", "Reason": provenance_reasons or "—"},
-            {"Check": "  Prompt injection", "Status": "PASS" if no_injection else "FAIL", "Type": "Required", "Reason": injection_reasons or "—"},
-            {"Check": "  Permission scope", "Status": "PASS" if permission_ok else "WARN", "Type": "Advisory", "Reason": permission_reasons or "—"},
-        ])
+        checks_df = pd.DataFrame(
+            [
+                {
+                    "Check": "Skill description clarity",
+                    "Status": "PASS" if no_ambiguity else "WARN",
+                    "Type": "Advisory",
+                    "Reason": ambiguity_reasons or "—",
+                },
+                {
+                    "Check": "Security risk level",
+                    "Status": risk_level,
+                    "Type": "Advisory",
+                    "Reason": f"Based on {len([f for f in v.flags if f.startswith('Red flag:')])} red flag(s), {len([f for f in v.flags if f.startswith('Provenance:')])} provenance issue(s), {len([f for f in v.flags if f.startswith('Permission scope:')])} permission issue(s), {len([f for f in v.flags if f.startswith('Prompt injection')])} injection(s)",
+                },
+                {
+                    "Check": "  Red flags",
+                    "Status": "PASS" if no_red_flags else "FAIL",
+                    "Type": "Required",
+                    "Reason": red_flag_reasons or "—",
+                },
+                {
+                    "Check": "  Author provenance",
+                    "Status": "PASS" if provenance_ok else "WARN",
+                    "Type": "Advisory",
+                    "Reason": provenance_reasons or "—",
+                },
+                {
+                    "Check": "  Prompt injection",
+                    "Status": "PASS" if no_injection else "FAIL",
+                    "Type": "Required",
+                    "Reason": injection_reasons or "—",
+                },
+                {
+                    "Check": "  Permission scope",
+                    "Status": "PASS" if permission_ok else "WARN",
+                    "Type": "Advisory",
+                    "Reason": permission_reasons or "—",
+                },
+            ]
+        )
         st.dataframe(checks_df, use_container_width=True, hide_index=True)
 
     # --- Early exit if validation failed ---
     if not results.validation.passed:
         with st.expander("Stages 3-4 — Skipped", expanded=False):
-            st.warning("Certification short-circuited because validation failed. Fix the issues above and re-run.")
+            st.warning(
+                "Certification short-circuited because validation failed. Fix the issues above and re-run."
+            )
 
         with st.expander("Stage 5 — Scoring & Certification Decision", expanded=True):
             if results.evaluation:
@@ -392,7 +483,9 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
             st.warning(f"Overlap detected (similarity: {o.similarity_score:.4f})")
             st.markdown(f"**Conflicts with:** {', '.join(o.conflicts_with)}")
         elif o:
-            st.success(f"No overlap detected (max similarity: {o.similarity_score:.4f})")
+            st.success(
+                f"No overlap detected (max similarity: {o.similarity_score:.4f})"
+            )
         else:
             st.info("Overlap check not available")
 
@@ -427,7 +520,12 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
                 with col2:
                     render_metric("Precision", r.precision, thresholds=[0.9, 0.7])
                 with col3:
-                    render_metric("False Trigger Rate", r.false_trigger_rate, thresholds=[0.1, 0.3], higher_is_better=False)
+                    render_metric(
+                        "False Trigger Rate",
+                        r.false_trigger_rate,
+                        thresholds=[0.1, 0.3],
+                        higher_is_better=False,
+                    )
 
         # 4.2 — Output Quality
         with st.expander("4.2 — Output Quality (LLM Judge)", expanded=False):
@@ -442,11 +540,17 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
                 oq = e.output_quality
                 col1, col2 = st.columns(2)
                 with col1:
-                    render_metric("Answer Relevance", oq.answer_relevance, thresholds=[0.8, 0.5])
+                    render_metric(
+                        "Answer Relevance", oq.answer_relevance, thresholds=[0.8, 0.5]
+                    )
                 with col2:
-                    render_metric("Faithfulness", oq.faithfulness, thresholds=[0.8, 0.5])
+                    render_metric(
+                        "Faithfulness", oq.faithfulness, thresholds=[0.8, 0.5]
+                    )
                 if oq.answer_relevance == 0.0 and oq.faithfulness == 0.0:
-                    st.caption("Scores are 0.0 — this typically means the Gemini judge API key is not configured.")
+                    st.caption(
+                        "Scores are 0.0 — this typically means the Gemini judge API key is not configured."
+                    )
 
         # 4.3 — Assertion Grading
         with st.expander("4.3 — Assertion Grading", expanded=False):
@@ -460,7 +564,9 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
             if e and e.grading:
                 for i, g in enumerate(e.grading):
                     s = g.summary
-                    header = f"Eval {i+1}: {s.passed}/{s.total} passed ({s.pass_rate:.0%})"
+                    header = (
+                        f"Eval {i+1}: {s.passed}/{s.total} passed ({s.pass_rate:.0%})"
+                    )
                     if s.pass_rate == 1.0:
                         st.success(header)
                     elif s.pass_rate > 0:
@@ -474,10 +580,14 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
                             st.caption(f"    Evidence: {ar.evidence}")
                     st.divider()
             elif e:
-                st.info("No assertions to grade (eval cases have no assertions defined)")
+                st.info(
+                    "No assertions to grade (eval cases have no assertions defined)"
+                )
 
         # 4.4 — Benchmark
-        with st.expander("4.4 — Benchmark (with_skill vs without_skill)", expanded=False):
+        with st.expander(
+            "4.4 — Benchmark (with_skill vs without_skill)", expanded=False
+        ):
             st.caption(
                 "Compares performance between with-skill and without-skill runs across three dimensions: "
                 "**Pass Rate** — average assertion pass rate across graded runs. "
@@ -488,11 +598,28 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
             )
             if e and e.benchmark:
                 b = e.benchmark
-                bench_df = pd.DataFrame([
-                    {"": "With Skill", "Pass Rate": f"{b.with_skill.pass_rate:.2f}", "Time (s)": f"{b.with_skill.time_seconds:.1f}", "Tokens": b.with_skill.tokens},
-                    {"": "Without Skill", "Pass Rate": f"{b.without_skill.pass_rate:.2f}", "Time (s)": f"{b.without_skill.time_seconds:.1f}", "Tokens": b.without_skill.tokens},
-                    {"": "Delta", "Pass Rate": f"{b.delta.pass_rate:+.2f}", "Time (s)": f"{b.delta.time_seconds:+.1f}", "Tokens": f"{b.delta.tokens:+d}"},
-                ])
+                bench_df = pd.DataFrame(
+                    [
+                        {
+                            "": "With Skill",
+                            "Pass Rate": f"{b.with_skill.pass_rate:.2f}",
+                            "Time (s)": f"{b.with_skill.time_seconds:.1f}",
+                            "Tokens": b.with_skill.tokens,
+                        },
+                        {
+                            "": "Without Skill",
+                            "Pass Rate": f"{b.without_skill.pass_rate:.2f}",
+                            "Time (s)": f"{b.without_skill.time_seconds:.1f}",
+                            "Tokens": b.without_skill.tokens,
+                        },
+                        {
+                            "": "Delta",
+                            "Pass Rate": f"{b.delta.pass_rate:+.2f}",
+                            "Time (s)": f"{b.delta.time_seconds:+.1f}",
+                            "Tokens": f"{b.delta.tokens:+d}",
+                        },
+                    ]
+                )
                 st.dataframe(bench_df, use_container_width=True, hide_index=True)
             elif e:
                 st.info("No benchmark data — without_skill runs not provided")
@@ -511,7 +638,9 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
         )
         st.divider()
         if not e:
-            st.warning("Certification decision not available — pipeline may have encountered an error.")
+            st.warning(
+                "Certification decision not available — pipeline may have encountered an error."
+            )
         else:
             skill_def = data.skill if data else None
             v = results.validation
@@ -541,49 +670,112 @@ def _render_pipeline_stages(results: PipelineResults, data: WorkspaceData | None
             left, right = st.columns(2)
             with left:
                 st.markdown("**Tier Thresholds** (out of 1.0)")
-                thresholds_df = pd.DataFrame([
-                    {"Tier": "Premium", "Score": ">= 0.9"},
-                    {"Tier": "Gold", "Score": ">= 0.8 and < 0.9"},
-                    {"Tier": "Silver", "Score": ">= 0.7 and < 0.8"},
-                    {"Tier": "Fail", "Score": "< 0.7"},
-                ])
+                thresholds_df = pd.DataFrame(
+                    [
+                        {"Tier": "Premium", "Score": ">= 0.9"},
+                        {"Tier": "Gold", "Score": ">= 0.8 and < 0.9"},
+                        {"Tier": "Silver", "Score": ">= 0.7 and < 0.8"},
+                        {"Tier": "Fail", "Score": "< 0.7"},
+                    ]
+                )
                 st.dataframe(thresholds_df, use_container_width=True, hide_index=True)
             with right:
                 st.markdown("**Stage Scores**")
-                stage_scores_df = pd.DataFrame({
-                    "Stage": ["1. Skill Definition", "2. Contract Validation", "3. Registry Overlap", "4. Evaluation Engine"],
-                    "Score": [scores["stage_1"]["score"], scores["stage_2"]["score"], scores["stage_3"]["score"], s4["score"]],
-                })
+                stage_scores_df = pd.DataFrame(
+                    {
+                        "Stage": [
+                            "1. Skill Definition",
+                            "2. Contract Validation",
+                            "3. Registry Overlap",
+                            "4. Evaluation Engine",
+                        ],
+                        "Score": [
+                            scores["stage_1"]["score"],
+                            scores["stage_2"]["score"],
+                            scores["stage_3"]["score"],
+                            s4["score"],
+                        ],
+                    }
+                )
                 st.bar_chart(stage_scores_df.set_index("Stage"))
 
             st.divider()
 
             st.markdown("**Final Score Breakdown**")
             breakdown_rows = [
-                {"Stage": "1. Skill Definition", "Weight": sw["stage_1"], "Score": round(scores["stage_1"]["score"], 3),
-                 "Weighted": round(sw["stage_1"] * scores["stage_1"]["score"], 3), "Components": "License, Compatibility, Author, Version"},
-                {"Stage": "2. Contract Validation", "Weight": sw["stage_2"], "Score": round(scores["stage_2"]["score"], 3),
-                 "Weighted": round(sw["stage_2"] * scores["stage_2"]["score"], 3), "Components": f"{scores['stage_2']['checks_passed']}/{scores['stage_2']['checks_total']} checks passed"},
-                {"Stage": "3. Registry Overlap", "Weight": sw["stage_3"], "Score": round(scores["stage_3"]["score"], 3),
-                 "Weighted": round(sw["stage_3"] * scores["stage_3"]["score"], 3), "Components": f"1 - similarity ({scores['stage_3']['similarity']:.3f})"},
-                {"Stage": "4. Evaluation Engine", "Weight": sw["stage_4"], "Score": round(s4["score"], 3),
-                 "Weighted": round(sw["stage_4"] * s4["score"], 3), "Components": "Weighted avg of 4.1-4.4"},
-                {"Stage": "  4.1 Routing", "Weight": s4w["routing"], "Score": round(s4["routing"], 3),
-                 "Weighted": round(s4w["routing"] * s4["routing"], 3), "Components": "Recall, Precision, 1 - FTR"},
-                {"Stage": "  4.2 Output Quality", "Weight": s4w["output_quality"], "Score": round(s4["output_quality"], 3),
-                 "Weighted": round(s4w["output_quality"] * s4["output_quality"], 3), "Components": "Answer relevance, Faithfulness"},
-                {"Stage": "  4.3 Assertion Grading", "Weight": s4w["assertion_grading"], "Score": round(s4["assertion_grading"], 3),
-                 "Weighted": round(s4w["assertion_grading"] * s4["assertion_grading"], 3), "Components": "Avg assertion pass rate"},
-                {"Stage": "  4.4 Benchmark", "Weight": s4w["benchmark"], "Score": round(s4["benchmark"], 3),
-                 "Weighted": round(s4w["benchmark"] * s4["benchmark"], 3), "Components": "With-skill pass rate"},
-                {"Stage": "Final", "Weight": 1.00, "Score": "",
-                 "Weighted": round(scores["final"], 3), "Components": ""},
+                {
+                    "Stage": "1. Skill Definition",
+                    "Weight": sw["stage_1"],
+                    "Score": round(scores["stage_1"]["score"], 3),
+                    "Weighted": round(sw["stage_1"] * scores["stage_1"]["score"], 3),
+                    "Components": "License, Compatibility, Author, Version",
+                },
+                {
+                    "Stage": "2. Contract Validation",
+                    "Weight": sw["stage_2"],
+                    "Score": round(scores["stage_2"]["score"], 3),
+                    "Weighted": round(sw["stage_2"] * scores["stage_2"]["score"], 3),
+                    "Components": f"{scores['stage_2']['checks_passed']}/{scores['stage_2']['checks_total']} checks passed",
+                },
+                {
+                    "Stage": "3. Registry Overlap",
+                    "Weight": sw["stage_3"],
+                    "Score": round(scores["stage_3"]["score"], 3),
+                    "Weighted": round(sw["stage_3"] * scores["stage_3"]["score"], 3),
+                    "Components": f"1 - similarity ({scores['stage_3']['similarity']:.3f})",
+                },
+                {
+                    "Stage": "4. Evaluation Engine",
+                    "Weight": sw["stage_4"],
+                    "Score": round(s4["score"], 3),
+                    "Weighted": round(sw["stage_4"] * s4["score"], 3),
+                    "Components": "Weighted avg of 4.1-4.4",
+                },
+                {
+                    "Stage": "  4.1 Routing",
+                    "Weight": s4w["routing"],
+                    "Score": round(s4["routing"], 3),
+                    "Weighted": round(s4w["routing"] * s4["routing"], 3),
+                    "Components": "Recall, Precision, 1 - FTR",
+                },
+                {
+                    "Stage": "  4.2 Output Quality",
+                    "Weight": s4w["output_quality"],
+                    "Score": round(s4["output_quality"], 3),
+                    "Weighted": round(s4w["output_quality"] * s4["output_quality"], 3),
+                    "Components": "Answer relevance, Faithfulness",
+                },
+                {
+                    "Stage": "  4.3 Assertion Grading",
+                    "Weight": s4w["assertion_grading"],
+                    "Score": round(s4["assertion_grading"], 3),
+                    "Weighted": round(
+                        s4w["assertion_grading"] * s4["assertion_grading"], 3
+                    ),
+                    "Components": "Avg assertion pass rate",
+                },
+                {
+                    "Stage": "  4.4 Benchmark",
+                    "Weight": s4w["benchmark"],
+                    "Score": round(s4["benchmark"], 3),
+                    "Weighted": round(s4w["benchmark"] * s4["benchmark"], 3),
+                    "Components": "With-skill pass rate",
+                },
+                {
+                    "Stage": "Final",
+                    "Weight": 1.00,
+                    "Score": "",
+                    "Weighted": round(scores["final"], 3),
+                    "Components": "",
+                },
             ]
             breakdown_df = pd.DataFrame(breakdown_rows)
             st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
 
             if e and not e.grading:
-                st.caption("Assertion grading was skipped (no Gemini API key or no assertions). Tier is based on routing metrics only.")
+                st.caption(
+                    "Assertion grading was skipped (no Gemini API key or no assertions). Tier is based on routing metrics only."
+                )
 
             if tier_reasons:
                 st.divider()
@@ -608,7 +800,9 @@ def page_dashboard():
 
     cached = list_cached_results()
     if not cached:
-        st.info("No cached results found. Run the certification from the **Certification** page first to populate the Skill Bench.")
+        st.info(
+            "No cached results found. Run the certification from the **Certification** page first to populate the Skill Bench."
+        )
         st.stop()
 
     # Load all cached results
@@ -616,15 +810,19 @@ def page_dashboard():
     for entry in cached:
         res = load_results(entry["skill"], entry["iteration"])
         if res and res.evaluation:
-            all_results.append({
-                "skill": entry["skill"],
-                "iteration": entry["iteration"],
-                "saved_at": entry["saved_at"],
-                "results": res,
-            })
+            all_results.append(
+                {
+                    "skill": entry["skill"],
+                    "iteration": entry["iteration"],
+                    "saved_at": entry["saved_at"],
+                    "results": res,
+                }
+            )
 
     if not all_results:
-        st.info("Cached results exist but have no evaluation data. Re-run the pipeline to generate full results.")
+        st.info(
+            "Cached results exist but have no evaluation data. Re-run the pipeline to generate full results."
+        )
         st.stop()
 
     # --- Skills Summary Table ---
@@ -634,21 +832,25 @@ def page_dashboard():
     for item in all_results:
         res: PipelineResults = item["results"]
         ev = res.evaluation
-        scores = compute_final_score(skill=res.skill, validation=res.validation, overlap=res.overlap, ev=ev)
+        scores = compute_final_score(
+            skill=res.skill, validation=res.validation, overlap=res.overlap, ev=ev
+        )
         s4 = scores["stage_4"]
         tier, reasons = determine_tier(ev, final_score=scores["final"])
         certified = tier != Tier.FAIL
-        rows.append({
-            "Skill": item["skill"],
-            "Iteration": item["iteration"],
-            "Final Score": round(scores["final"], 3),
-            "Tier": tier.value,
-            "Certified": certified,
-            "1. Definition": round(scores["stage_1"]["score"], 3),
-            "2. Validation": round(scores["stage_2"]["score"], 3),
-            "3. Overlap": round(scores["stage_3"]["score"], 3),
-            "4. Evaluation": round(s4["score"], 3),
-        })
+        rows.append(
+            {
+                "Skill": item["skill"],
+                "Iteration": item["iteration"],
+                "Final Score": round(scores["final"], 3),
+                "Tier": tier.value,
+                "Certified": certified,
+                "1. Definition": round(scores["stage_1"]["score"], 3),
+                "2. Validation": round(scores["stage_2"]["score"], 3),
+                "3. Overlap": round(scores["stage_3"]["score"], 3),
+                "4. Evaluation": round(s4["score"], 3),
+            }
+        )
 
     df = pd.DataFrame(rows)
     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -667,13 +869,15 @@ def page_dashboard():
     else:
         skill_labels = df["Skill"]
 
-    compare_df = pd.DataFrame({
-        "Skill": skill_labels,
-        "1. Definition": df["1. Definition"],
-        "2. Validation": df["2. Validation"],
-        "3. Overlap": df["3. Overlap"],
-        "4. Evaluation": df["4. Evaluation"],
-    })
+    compare_df = pd.DataFrame(
+        {
+            "Skill": skill_labels,
+            "1. Definition": df["1. Definition"],
+            "2. Validation": df["2. Validation"],
+            "3. Overlap": df["3. Overlap"],
+            "4. Evaluation": df["4. Evaluation"],
+        }
+    )
     st.bar_chart(compare_df.set_index("Skill"))
 
     # --- Benchmark Comparison ---
@@ -683,12 +887,14 @@ def page_dashboard():
         ev = res.evaluation
         if ev and ev.benchmark:
             b = ev.benchmark
-            benchmark_rows.append({
-                "Skill": item["skill"],
-                "Pass Rate Delta": round(b.delta.pass_rate, 3),
-                "Time Delta (s)": round(b.delta.time_seconds, 1),
-                "Token Delta": b.delta.tokens,
-            })
+            benchmark_rows.append(
+                {
+                    "Skill": item["skill"],
+                    "Pass Rate Delta": round(b.delta.pass_rate, 3),
+                    "Time Delta (s)": round(b.delta.time_seconds, 1),
+                    "Token Delta": b.delta.tokens,
+                }
+            )
 
     if benchmark_rows:
         st.subheader("Benchmark Comparison (with_skill vs without_skill)")
@@ -701,7 +907,9 @@ def page_dashboard():
     for item in all_results:
         res: PipelineResults = item["results"]
         ev = res.evaluation
-        scores = compute_final_score(skill=res.skill, validation=res.validation, overlap=res.overlap, ev=ev)
+        scores = compute_final_score(
+            skill=res.skill, validation=res.validation, overlap=res.overlap, ev=ev
+        )
         tier, _reasons = determine_tier(ev, final_score=scores["final"])
         tier_icon = TIER_ICONS.get(tier, "question")
         label = f":{tier_icon}: {item['skill']} — iteration {item['iteration']} — {tier.value} ({scores['final']:.3f})"
@@ -721,7 +929,9 @@ workspace_options = discover_workspaces()
 
 with st.sidebar:
     st.header("Skill Certification")
-    page = st.radio("Navigate", ["Certification", "Skill Bench"], label_visibility="collapsed")
+    page = st.radio(
+        "Navigate", ["Certification", "Skill Bench"], label_visibility="collapsed"
+    )
     st.divider()
 
 if page == "Certification":

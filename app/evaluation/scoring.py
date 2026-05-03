@@ -34,14 +34,16 @@ TIER_THRESHOLDS: dict[Tier, dict[str, float]] = {
 }
 
 
-def determine_tier(result: EvaluationResult, final_score: float | None = None) -> tuple[Tier, list[str]]:
+def determine_tier(
+    result: EvaluationResult, final_score: float | None = None
+) -> tuple[Tier, list[str]]:
     reasons: list[str] = []
 
     has_gradings = bool(result.grading)
     avg_pass_rate = 1.0
     if has_gradings:
-        avg_pass_rate = (
-            sum(g.summary.pass_rate for g in result.grading) / len(result.grading)
+        avg_pass_rate = sum(g.summary.pass_rate for g in result.grading) / len(
+            result.grading
         )
 
     logger.info(
@@ -110,7 +112,13 @@ STAGE_4_WEIGHTS = {
 
 def _score_stage_1(skill: SkillDefinition | None) -> dict:
     if not skill:
-        return {"score": 0.0, "license": 0.0, "compatibility": 0.0, "author": 0.0, "version": 0.0}
+        return {
+            "score": 0.0,
+            "license": 0.0,
+            "compatibility": 0.0,
+            "author": 0.0,
+            "version": 0.0,
+        }
     fields = {
         "license": 1.0 if skill.license else 0.0,
         "compatibility": 1.0 if skill.compatibility else 0.0,
@@ -126,7 +134,8 @@ def _score_stage_2(validation: ValidationResult | None) -> dict:
         return {"score": 0.0, "checks_passed": 0, "checks_total": 0}
     total = len(validation.flags) if validation.flags else 0
     failed = sum(
-        1 for f in validation.flags
+        1
+        for f in validation.flags
         if f.startswith("Red flag:")
         or f.startswith("Provenance:")
         or f.startswith("Permission scope:")
@@ -139,18 +148,33 @@ def _score_stage_2(validation: ValidationResult | None) -> dict:
 def _score_stage_3(overlap: OverlapResult | None) -> dict:
     if not overlap:
         return {"score": 1.0, "similarity": 0.0}
-    return {"score": 1.0 - overlap.similarity_score, "similarity": overlap.similarity_score}
+    return {
+        "score": 1.0 - overlap.similarity_score,
+        "similarity": overlap.similarity_score,
+    }
 
 
 def _score_stage_4(ev: EvaluationResult | None) -> dict:
     if not ev:
-        return {"score": 0.0, "routing": 0.0, "output_quality": 0.0, "assertion_grading": 0.0, "benchmark": 0.0}
+        return {
+            "score": 0.0,
+            "routing": 0.0,
+            "output_quality": 0.0,
+            "assertion_grading": 0.0,
+            "benchmark": 0.0,
+        }
 
-    routing = (ev.routing.recall + ev.routing.precision + (1.0 - ev.routing.false_trigger_rate)) / 3
-    output_quality = (ev.output_quality.answer_relevance + ev.output_quality.faithfulness) / 2
+    routing = (
+        ev.routing.recall + ev.routing.precision + (1.0 - ev.routing.false_trigger_rate)
+    ) / 3
+    output_quality = (
+        ev.output_quality.answer_relevance + ev.output_quality.faithfulness
+    ) / 2
 
     if ev.grading:
-        assertion_grading = sum(g.summary.pass_rate for g in ev.grading) / len(ev.grading)
+        assertion_grading = sum(g.summary.pass_rate for g in ev.grading) / len(
+            ev.grading
+        )
     else:
         assertion_grading = 0.0
 

@@ -12,8 +12,8 @@ from app.core.models import (
     SkillDefinition,
     Tier,
 )
-from app.evaluation.judge import GeminiJudge
 from app.evaluation.metrics import run_full_evaluation
+from app.evaluation.providers import JudgeProvider, create_judge
 from app.evaluation.scoring import compute_final_score, determine_tier
 from app.evaluation.validation import validate_skill
 from app.pipeline.registry import RegistryStore, check_overlap
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class CertificationPipeline:
-    def __init__(self, store: RegistryStore, judge: GeminiJudge):
+    def __init__(self, store: RegistryStore, judge: JudgeProvider):
         self.store = store
         self.judge = judge
 
@@ -49,11 +49,17 @@ class CertificationPipeline:
 
         logger.info("Stage: Registry overlap check")
         overlap = await check_overlap(skill, self.store)
-        logger.info("Overlap result: overlap=%s score=%.4f", overlap.overlap, overlap.similarity_score)
+        logger.info(
+            "Overlap result: overlap=%s score=%.4f",
+            overlap.overlap,
+            overlap.similarity_score,
+        )
 
         cases = dataset.evals
 
-        logger.info("Stage: Evaluation engine (%d cases, %d runs)", len(cases), len(with_runs))
+        logger.info(
+            "Stage: Evaluation engine (%d cases, %d runs)", len(cases), len(with_runs)
+        )
         eval_result = await run_full_evaluation(
             skill=skill,
             cases=cases,
@@ -69,7 +75,9 @@ class CertificationPipeline:
             )
 
         logger.info("Stage: Tier determination")
-        scores = compute_final_score(skill=skill, validation=validation, overlap=overlap, ev=eval_result)
+        scores = compute_final_score(
+            skill=skill, validation=validation, overlap=overlap, ev=eval_result
+        )
         tier, reasons = determine_tier(eval_result, final_score=scores["final"])
         certified = tier != Tier.FAIL
         logger.info("Result: tier=%s certified=%s", tier.value, certified)
@@ -92,10 +100,13 @@ class CertificationPipeline:
         )
         logger.info("Registering skill '%s' in registry", skill.name)
         self.store.upsert(entry)
-        self.store.emit_hook("certification_complete", {
-            "skill": skill.name,
-            "tier": tier.value,
-            "certified": certified,
-        })
+        self.store.emit_hook(
+            "certification_complete",
+            {
+                "skill": skill.name,
+                "tier": tier.value,
+                "certified": certified,
+            },
+        )
 
         return decision
