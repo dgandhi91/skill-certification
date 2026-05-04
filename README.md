@@ -290,11 +290,70 @@ Tiers are evaluated top-down (Premium first). The first tier where all condition
 
 Settings are loaded from a `.env` file at the project root:
 
+### Provider Selection
+
+The system supports multiple LLM providers for evaluation. Choose one by setting `JUDGE_PROVIDER`:
+
+```bash
+# Copy example config
+cp .env.example .env
+
+# Edit .env and set your provider
+JUDGE_PROVIDER=gemini  # or ollama, openai, anthropic
+```
+
+### Provider-Specific Configuration
+
+**Gemini (Default)**
+```bash
+JUDGE_PROVIDER=gemini
+GEMINI_API_KEY=your-api-key-here
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+**Ollama (Local)**
+```bash
+JUDGE_PROVIDER=ollama
+OLLAMA_MODEL=llama3.2
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+Make sure Ollama is running:
+```bash
+ollama serve
+ollama pull llama3.2
+```
+
+**OpenAI**
+```bash
+JUDGE_PROVIDER=openai
+OPENAI_API_KEY=your-api-key-here
+OPENAI_MODEL=gpt-4o
+```
+
+**Anthropic (Claude)**
+```bash
+JUDGE_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-api-key-here
+ANTHROPIC_MODEL=claude-sonnet-4-5
+```
+
+### Configuration Variables
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GEMINI_API_KEY` | `""` | API key for Gemini judge |
+| `JUDGE_PROVIDER` | `gemini` | LLM provider (gemini, ollama, openai, anthropic) |
+| `GEMINI_API_KEY` | `""` | API key for Gemini (required when provider=gemini) |
 | `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API endpoint |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Model used for LLM-as-a-judge |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model to use |
+| `OLLAMA_MODEL` | `llama3.2` | Ollama model name |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
+| `OPENAI_API_KEY` | `""` | API key for OpenAI (required when provider=openai) |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API endpoint |
+| `OPENAI_MODEL` | `gpt-4o` | OpenAI model to use |
+| `ANTHROPIC_API_KEY` | `""` | API key for Anthropic (required when provider=anthropic) |
+| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic API endpoint |
+| `ANTHROPIC_MODEL` | `claude-sonnet-4-5` | Anthropic model to use |
 | `SIMILARITY_THRESHOLD` | `0.8` | Cosine similarity threshold for overlap detection |
 
 ## References

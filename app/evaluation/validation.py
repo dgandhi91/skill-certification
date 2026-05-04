@@ -16,12 +16,15 @@ from app.evaluation.judge import GeminiJudge
 logger = logging.getLogger(__name__)
 
 
-async def validate_skill(skill: SkillDefinition, dataset: EvalDataset, judge: GeminiJudge) -> ValidationResult:
+async def validate_skill(
+    skill: SkillDefinition, dataset: EvalDataset, judge: GeminiJudge
+) -> ValidationResult:
     flags: list[str] = []
 
     logger.info(
         "Validating skill '%s': %d evals",
-        skill.name, len(dataset.evals),
+        skill.name,
+        len(dataset.evals),
     )
 
     non_adversarial = [e for e in dataset.evals if e.category != "adversarial"]
@@ -57,13 +60,14 @@ async def validate_skill(skill: SkillDefinition, dataset: EvalDataset, judge: Ge
     )
     flags.append(f"Security risk: {risk_level}")
 
-    passed = not any(
-        f.startswith("Red flag:")
-        for f in flags
-    )
+    passed = not any(f.startswith("Red flag:") for f in flags)
 
     if passed:
-        logger.info("Validation PASSED for '%s' (%d informational flags)", skill.name, len(flags))
+        logger.info(
+            "Validation PASSED for '%s' (%d informational flags)",
+            skill.name,
+            len(flags),
+        )
     else:
         logger.warning("Validation FAILED for '%s': %s", skill.name, flags)
 

@@ -29,9 +29,7 @@ class PipelineResults:
     skill: SkillDefinition | None = None
 
 
-def save_results(
-    skill_name: str, iteration: int, results: PipelineResults
-) -> Path:
+def save_results(skill_name: str, iteration: int, results: PipelineResults) -> Path:
     skill_dir = RESULTS_DIR / skill_name
     skill_dir.mkdir(parents=True, exist_ok=True)
     path = skill_dir / f"iteration-{iteration}.json"
@@ -70,9 +68,7 @@ def load_results(skill_name: str, iteration: int) -> PipelineResults | None:
 
     validation = ValidationResult.model_validate(data["validation"])
     overlap = (
-        OverlapResult.model_validate(data["overlap"])
-        if "overlap" in data
-        else None
+        OverlapResult.model_validate(data["overlap"]) if "overlap" in data else None
     )
     evaluation = (
         EvaluationResult.model_validate(data["evaluation"])
@@ -85,11 +81,7 @@ def load_results(skill_name: str, iteration: int) -> PipelineResults | None:
         else None
     )
     logs = data.get("logs")
-    skill = (
-        SkillDefinition.model_validate(data["skill"])
-        if "skill" in data
-        else None
-    )
+    skill = SkillDefinition.model_validate(data["skill"]) if "skill" in data else None
 
     logger.info("Loaded cached results from %s", path)
     return PipelineResults(
@@ -120,12 +112,14 @@ def list_cached_results() -> list[dict]:
             data = json.loads(result_file.read_text())
             meta = data.get("_metadata", {})
 
-            entries.append({
-                "skill": skill_dir.name,
-                "iteration": iteration,
-                "path": result_file,
-                "saved_at": meta.get("saved_at", ""),
-            })
+            entries.append(
+                {
+                    "skill": skill_dir.name,
+                    "iteration": iteration,
+                    "path": result_file,
+                    "saved_at": meta.get("saved_at", ""),
+                }
+            )
     return entries
 
 

@@ -29,10 +29,13 @@ class RegistryStore:
         version = entry.metadata.get("version", "latest")
         key = f"{entry.skill_name}:{version}"
         self._entries[key] = entry
-        self.emit_hook("skill_registered", {
-            "skill": entry.skill_name,
-            "version": version,
-        })
+        self.emit_hook(
+            "skill_registered",
+            {
+                "skill": entry.skill_name,
+                "version": version,
+            },
+        )
 
     def get(self, name: str, version: str | None = None) -> RegistryEntry | None:
         if version:

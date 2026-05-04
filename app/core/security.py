@@ -63,7 +63,9 @@ async def check_permission_scope(texts: list[str], judge: GeminiJudge) -> list[s
         invocation = tool_info.get("invocation", "unknown")
         detail = tool_info.get("detail", "")
         logger.warning("Dangerous tool: %s (%s) — %s", tool, invocation, detail)
-        findings.append(f"Permission scope: dangerous tool '{tool}' ({invocation}) — {detail}")
+        findings.append(
+            f"Permission scope: dangerous tool '{tool}' ({invocation}) — {detail}"
+        )
     if not findings:
         logger.debug("No dangerous tool invocations found")
     return findings
@@ -77,8 +79,17 @@ def check_provenance(metadata_author: str) -> list[str]:
     return []
 
 
-def classify_risk(red_flag_count: int, provenance_count: int, permission_count: int, injection_count: int = 0) -> str:
-    if injection_count > 0 or red_flag_count >= 5 or (red_flag_count > 0 and permission_count > 0):
+def classify_risk(
+    red_flag_count: int,
+    provenance_count: int,
+    permission_count: int,
+    injection_count: int = 0,
+) -> str:
+    if (
+        injection_count > 0
+        or red_flag_count >= 5
+        or (red_flag_count > 0 and permission_count > 0)
+    ):
         level = "Extreme"
     elif red_flag_count > 0:
         level = "High"
@@ -88,6 +99,10 @@ def classify_risk(red_flag_count: int, provenance_count: int, permission_count: 
         level = "Low"
     logger.info(
         "Risk classification: %s (injections=%d, red_flags=%d, provenance=%d, permissions=%d)",
-        level, injection_count, red_flag_count, provenance_count, permission_count,
+        level,
+        injection_count,
+        red_flag_count,
+        provenance_count,
+        permission_count,
     )
     return level

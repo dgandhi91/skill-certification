@@ -13,8 +13,8 @@ from app.core.models import (
     Tier,
     ValidationResult,
 )
-from app.evaluation.judge import GeminiJudge
 from app.evaluation.metrics import run_full_evaluation
+from app.evaluation.providers import create_judge
 from app.evaluation.scoring import (
     STAGE_4_WEIGHTS,
     STAGE_WEIGHTS,
@@ -36,14 +36,23 @@ async def run_pipeline(
     iteration: int = 1,
     save_cache: bool = True,
 ) -> None:
-    logger.info("Stage 1: Loading workspace: skill=%s workspace=%s iteration=%d", skill_dir, workspace_dir, iteration)
+    logger.info(
+        "Stage 1: Loading workspace: skill=%s workspace=%s iteration=%d",
+        skill_dir,
+        workspace_dir,
+        iteration,
+    )
     data = load_workspace(Path(skill_dir), Path(workspace_dir), iteration)
-    logger.info("Loaded skill '%s' with %d evals, %d with_runs, %d without_runs",
-                data.skill.name, len(data.dataset.evals), len(data.with_runs),
-                len(data.without_runs) if data.without_runs else 0)
+    logger.info(
+        "Loaded skill '%s' with %d evals, %d with_runs, %d without_runs",
+        data.skill.name,
+        len(data.dataset.evals),
+        len(data.with_runs),
+        len(data.without_runs) if data.without_runs else 0,
+    )
 
     store = RegistryStore()
-    judge = GeminiJudge()
+    judge = create_judge()
 
     try:
         logger.info("Stage 2: Contract validation")
@@ -59,7 +68,9 @@ async def run_pipeline(
             )
             print_decision(decision, skill=data.skill, validation=validation)
             if save_cache:
-                results = PipelineResults(validation=validation, decision=decision, skill=data.skill)
+                results = PipelineResults(
+                    validation=validation, decision=decision, skill=data.skill
+                )
                 path = save_results(data.skill.name, iteration, results)
                 print(f"\nResults saved to: {path}")
             return
@@ -68,7 +79,11 @@ async def run_pipeline(
 
         logger.info("Stage 3: Registry overlap check")
         overlap = await check_overlap(data.skill, store)
-        logger.info("Overlap: similarity=%.4f overlap=%s", overlap.similarity_score, overlap.overlap)
+        logger.info(
+            "Overlap: similarity=%.4f overlap=%s",
+            overlap.similarity_score,
+            overlap.overlap,
+        )
 
         cases = data.dataset.evals
 
@@ -88,7 +103,9 @@ async def run_pipeline(
             )
 
         logger.info("Stage 5: Scoring & certification decision")
-        scores = compute_final_score(skill=data.skill, validation=validation, overlap=overlap, ev=eval_result)
+        scores = compute_final_score(
+            skill=data.skill, validation=validation, overlap=overlap, ev=eval_result
+        )
         tier, reasons = determine_tier(eval_result, final_score=scores["final"])
         decision = CertificationDecision(
             certified=tier != Tier.FAIL,
@@ -96,7 +113,9 @@ async def run_pipeline(
             reasons=reasons,
             evaluation=eval_result,
         )
-        logger.info("Pipeline complete: tier=%s certified=%s", tier.value, decision.certified)
+        logger.info(
+            "Pipeline complete: tier=%s certified=%s", tier.value, decision.certified
+        )
 
         print_results(data.skill, validation, overlap, eval_result, decision)
 
@@ -152,7 +171,9 @@ def print_results(
     if evaluation.grading:
         print(f"\n--- Assertion Grading ---")
         for i, g in enumerate(evaluation.grading):
-            print(f"  Eval {i+1}: {g.summary.passed}/{g.summary.total} passed ({g.summary.pass_rate:.0%})")
+            print(
+                f"  Eval {i+1}: {g.summary.passed}/{g.summary.total} passed ({g.summary.pass_rate:.0%})"
+            )
             for ar in g.assertion_results:
                 status = "PASS" if ar.passed else "FAIL"
                 print(f"    [{status}] {ar.text}")
@@ -163,16 +184,28 @@ def print_results(
         b = evaluation.benchmark
         print(f"\n--- Benchmark ---")
         print(f"  {'':18s} {'Pass Rate':>10s} {'Time (s)':>10s} {'Tokens':>8s}")
-        print(f"  {'With Skill':18s} {b.with_skill.pass_rate:10.2f} {b.with_skill.time_seconds:10.1f} {b.with_skill.tokens:8d}")
-        print(f"  {'Without Skill':18s} {b.without_skill.pass_rate:10.2f} {b.without_skill.time_seconds:10.1f} {b.without_skill.tokens:8d}")
-        print(f"  {'Delta':18s} {b.delta.pass_rate:+10.2f} {b.delta.time_seconds:+10.1f} {b.delta.tokens:+8d}")
+        print(
+            f"  {'With Skill':18s} {b.with_skill.pass_rate:10.2f} {b.with_skill.time_seconds:10.1f} {b.with_skill.tokens:8d}"
+        )
+        print(
+            f"  {'Without Skill':18s} {b.without_skill.pass_rate:10.2f} {b.without_skill.time_seconds:10.1f} {b.without_skill.tokens:8d}"
+        )
+        print(
+            f"  {'Delta':18s} {b.delta.pass_rate:+10.2f} {b.delta.time_seconds:+10.1f} {b.delta.tokens:+8d}"
+        )
 
     if evaluation.flags:
         print(f"\n--- Flags ---")
         for f in evaluation.flags:
             print(f"  {f}")
 
-    print_decision(decision, skill=skill, validation=validation, overlap=overlap, evaluation=evaluation)
+    print_decision(
+        decision,
+        skill=skill,
+        validation=validation,
+        overlap=overlap,
+        evaluation=evaluation,
+    )
 
 
 def print_decision(
@@ -182,7 +215,9 @@ def print_decision(
     overlap: OverlapResult | None = None,
     evaluation: EvaluationResult | None = None,
 ) -> None:
-    scores = compute_final_score(skill=skill, validation=validation, overlap=overlap, ev=evaluation)
+    scores = compute_final_score(
+        skill=skill, validation=validation, overlap=overlap, ev=evaluation
+    )
 
     print(f"\n--- Final Score ---")
     sw = STAGE_WEIGHTS
@@ -190,14 +225,30 @@ def print_decision(
     s4 = scores["stage_4"]
 
     print(f"  {'Stage':25s} {'Weight':>8s} {'Score':>8s} {'Weighted':>10s}")
-    print(f"  {'1. Skill Definition':25s} {sw['stage_1']:8.2f} {scores['stage_1']['score']:8.3f} {sw['stage_1'] * scores['stage_1']['score']:10.3f}")
-    print(f"  {'2. Contract Validation':25s} {sw['stage_2']:8.2f} {scores['stage_2']['score']:8.3f} {sw['stage_2'] * scores['stage_2']['score']:10.3f}")
-    print(f"  {'3. Registry Overlap':25s} {sw['stage_3']:8.2f} {scores['stage_3']['score']:8.3f} {sw['stage_3'] * scores['stage_3']['score']:10.3f}")
-    print(f"  {'4. Evaluation Engine':25s} {sw['stage_4']:8.2f} {s4['score']:8.3f} {sw['stage_4'] * s4['score']:10.3f}")
-    print(f"    {'4.1 Routing':23s} {s4w['routing']:8.2f} {s4['routing']:8.3f} {s4w['routing'] * s4['routing']:10.3f}")
-    print(f"    {'4.2 Output Quality':23s} {s4w['output_quality']:8.2f} {s4['output_quality']:8.3f} {s4w['output_quality'] * s4['output_quality']:10.3f}")
-    print(f"    {'4.3 Assertion Grading':23s} {s4w['assertion_grading']:8.2f} {s4['assertion_grading']:8.3f} {s4w['assertion_grading'] * s4['assertion_grading']:10.3f}")
-    print(f"    {'4.4 Benchmark':23s} {s4w['benchmark']:8.2f} {s4['benchmark']:8.3f} {s4w['benchmark'] * s4['benchmark']:10.3f}")
+    print(
+        f"  {'1. Skill Definition':25s} {sw['stage_1']:8.2f} {scores['stage_1']['score']:8.3f} {sw['stage_1'] * scores['stage_1']['score']:10.3f}"
+    )
+    print(
+        f"  {'2. Contract Validation':25s} {sw['stage_2']:8.2f} {scores['stage_2']['score']:8.3f} {sw['stage_2'] * scores['stage_2']['score']:10.3f}"
+    )
+    print(
+        f"  {'3. Registry Overlap':25s} {sw['stage_3']:8.2f} {scores['stage_3']['score']:8.3f} {sw['stage_3'] * scores['stage_3']['score']:10.3f}"
+    )
+    print(
+        f"  {'4. Evaluation Engine':25s} {sw['stage_4']:8.2f} {s4['score']:8.3f} {sw['stage_4'] * s4['score']:10.3f}"
+    )
+    print(
+        f"    {'4.1 Routing':23s} {s4w['routing']:8.2f} {s4['routing']:8.3f} {s4w['routing'] * s4['routing']:10.3f}"
+    )
+    print(
+        f"    {'4.2 Output Quality':23s} {s4w['output_quality']:8.2f} {s4['output_quality']:8.3f} {s4w['output_quality'] * s4['output_quality']:10.3f}"
+    )
+    print(
+        f"    {'4.3 Assertion Grading':23s} {s4w['assertion_grading']:8.2f} {s4['assertion_grading']:8.3f} {s4w['assertion_grading'] * s4['assertion_grading']:10.3f}"
+    )
+    print(
+        f"    {'4.4 Benchmark':23s} {s4w['benchmark']:8.2f} {s4['benchmark']:8.3f} {s4w['benchmark'] * s4['benchmark']:10.3f}"
+    )
     print(f"  {'-'*53}")
     print(f"  {'FINAL':25s} {'1.00':>8s} {'':>8s} {scores['final']:10.3f}")
 
@@ -225,10 +276,21 @@ def print_decision(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run skill certification pipeline")
-    parser.add_argument("skill_dir", help="Path to skill directory containing SKILL.md and evals/")
-    parser.add_argument("workspace_dir", help="Path to workspace directory containing iteration-N/ dirs")
-    parser.add_argument("--iteration", type=int, default=1, help="Iteration number to evaluate (default: 1)")
-    parser.add_argument("--no-cache", action="store_true", help="Skip saving results to cache")
+    parser.add_argument(
+        "skill_dir", help="Path to skill directory containing SKILL.md and evals/"
+    )
+    parser.add_argument(
+        "workspace_dir", help="Path to workspace directory containing iteration-N/ dirs"
+    )
+    parser.add_argument(
+        "--iteration",
+        type=int,
+        default=1,
+        help="Iteration number to evaluate (default: 1)",
+    )
+    parser.add_argument(
+        "--no-cache", action="store_true", help="Skip saving results to cache"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -238,7 +300,14 @@ def main() -> None:
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    asyncio.run(run_pipeline(args.skill_dir, args.workspace_dir, args.iteration, save_cache=not args.no_cache))
+    asyncio.run(
+        run_pipeline(
+            args.skill_dir,
+            args.workspace_dir,
+            args.iteration,
+            save_cache=not args.no_cache,
+        )
+    )
 
 
 if __name__ == "__main__":

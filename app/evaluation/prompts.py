@@ -122,4 +122,3 @@ Require concrete evidence for a PASS. Do not give the benefit of the doubt.
 
 Respond with ONLY a JSON object: {{"passed": <bool>, "evidence": "<specific evidence from the output>"}}
 """
-

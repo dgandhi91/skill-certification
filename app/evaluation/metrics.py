@@ -59,7 +59,13 @@ def compute_routing(
     )
     logger.info(
         "Routing: recall=%.3f precision=%.3f FTR=%.3f (TP=%d FP=%d FN=%d TN=%d)",
-        metrics.recall, metrics.precision, metrics.false_trigger_rate, tp, fp, fn, tn,
+        metrics.recall,
+        metrics.precision,
+        metrics.false_trigger_rate,
+        tp,
+        fp,
+        fn,
+        tn,
     )
     return metrics
 
@@ -73,7 +79,9 @@ async def compute_output_quality(
     scored = [
         (r, case_map[r.eval_id])
         for r in with_runs
-        if r.actual_output and r.eval_id in case_map and case_map[r.eval_id].expected_output
+        if r.actual_output
+        and r.eval_id in case_map
+        and case_map[r.eval_id].expected_output
     ]
     if not scored:
         logger.info("Output quality: no scoreable runs, skipping")
@@ -95,7 +103,11 @@ async def compute_output_quality(
         answer_relevance=relevance_total / n,
         faithfulness=faithfulness_total / n,
     )
-    logger.info("Output quality: relevance=%.3f faithfulness=%.3f", oq.answer_relevance, oq.faithfulness)
+    logger.info(
+        "Output quality: relevance=%.3f faithfulness=%.3f",
+        oq.answer_relevance,
+        oq.faithfulness,
+    )
     return oq
 
 
@@ -113,11 +125,13 @@ async def grade_eval_run(
             actual_output=run.actual_output,
             assertion=assertion_text,
         )
-        results.append(AssertionResult(
-            text=assertion_text,
-            passed=judgement.get("passed", False),
-            evidence=judgement.get("evidence", ""),
-        ))
+        results.append(
+            AssertionResult(
+                text=assertion_text,
+                passed=judgement.get("passed", False),
+                evidence=judgement.get("evidence", ""),
+            )
+        )
 
     passed = sum(1 for r in results if r.passed)
     total = len(results)
@@ -174,8 +188,12 @@ async def run_full_evaluation(
     judge: GeminiJudge,
     without_runs: list[EvalRunOutput] | None = None,
 ) -> EvaluationResult:
-    logger.info("Running full evaluation for skill '%s' (%d cases, %d runs)",
-                skill.name, len(cases), len(with_runs))
+    logger.info(
+        "Running full evaluation for skill '%s' (%d cases, %d runs)",
+        skill.name,
+        len(cases),
+        len(with_runs),
+    )
 
     logger.info("Computing routing metrics")
     routing = compute_routing(with_runs, cases)
@@ -185,7 +203,11 @@ async def run_full_evaluation(
 
     case_map = {c.id: c for c in cases}
     gradings: list[GradingResult] = []
-    gradable = [(r, case_map[r.eval_id]) for r in with_runs if r.eval_id in case_map and case_map[r.eval_id].assertions]
+    gradable = [
+        (r, case_map[r.eval_id])
+        for r in with_runs
+        if r.eval_id in case_map and case_map[r.eval_id].assertions
+    ]
     if gradable:
         logger.info("Grading %d with_skill runs with assertions", len(gradable))
     for run, case in gradable:
