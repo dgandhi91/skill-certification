@@ -132,13 +132,15 @@ def _score_stage_1(skill: SkillDefinition | None) -> dict:
 def _score_stage_2(validation: ValidationResult | None) -> dict:
     if not validation:
         return {"score": 0.0, "checks_passed": 0, "checks_total": 0}
-    total = len(validation.flags) if validation.flags else 0
+    scorable_flags = [f for f in validation.flags if not f.startswith("Security risk:")]
+    total = len(scorable_flags)
     failed = sum(
         1
-        for f in validation.flags
+        for f in scorable_flags
         if f.startswith("Red flag:")
         or f.startswith("Provenance:")
         or f.startswith("Permission scope:")
+        or f.startswith("Prompt injection")
     )
     passed = total - failed
     score = passed / total if total > 0 else 1.0
