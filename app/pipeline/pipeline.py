@@ -48,7 +48,7 @@ class CertificationPipeline:
             )
 
         logger.info("Stage: Registry overlap check")
-        overlap = await check_overlap(skill, self.store)
+        overlap = await check_overlap(skill, self.store, judge=self.judge)
         logger.info(
             "Overlap result: overlap=%s score=%.4f",
             overlap.overlap,
@@ -89,7 +89,7 @@ class CertificationPipeline:
             evaluation=eval_result,
         )
 
-        embedding = text_to_embedding(skill.description)
+        embedding = text_to_embedding(skill.description, judge=self.judge)
         entry = RegistryEntry(
             skill_name=skill.name,
             description=skill.description,

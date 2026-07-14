@@ -5,10 +5,12 @@ import asyncio
 import logging
 from pathlib import Path
 
+from app.core.embeddings import text_to_embedding
 from app.core.models import (
     CertificationDecision,
     EvaluationResult,
     OverlapResult,
+    RegistryEntry,
     SkillDefinition,
     Tier,
     ValidationResult,
@@ -24,7 +26,7 @@ from app.evaluation.scoring import (
 )
 from app.evaluation.validation import validate_skill
 from app.pipeline.loader import load_workspace
-from app.pipeline.registry import RegistryStore, check_overlap
+from app.pipeline.registry import SQLiteRegistryStore, check_overlap
 from app.pipeline.results_store import PipelineResults, save_results
 
 logger = logging.getLogger(__name__)
@@ -51,7 +53,7 @@ async def run_pipeline(
         len(data.without_runs) if data.without_runs else 0,
     )
 
-    store = RegistryStore()
+    store = SQLiteRegistryStore()
     judge = create_judge()
 
     try:
@@ -78,7 +80,7 @@ async def run_pipeline(
         logger.info("Validation PASSED")
 
         logger.info("Stage 3: Registry overlap check")
-        overlap = await check_overlap(data.skill, store)
+        overlap = await check_overlap(data.skill, store, judge=judge)
         logger.info(
             "Overlap: similarity=%.4f overlap=%s",
             overlap.similarity_score,
@@ -116,6 +118,18 @@ async def run_pipeline(
         logger.info(
             "Pipeline complete: tier=%s certified=%s", tier.value, decision.certified
         )
+
+        embedding = text_to_embedding(data.skill.description, judge=judge)
+        entry = RegistryEntry(
+            skill_name=data.skill.name,
+            description=data.skill.description,
+            metadata=data.skill.metadata.model_dump(),
+            embedding=embedding,
+            certification=decision,
+            evaluation=eval_result,
+        )
+        store.upsert(entry)
+        logger.info("Registered skill '%s' in persistent registry", data.skill.name)
 
         print_results(data.skill, validation, overlap, eval_result, decision)
 

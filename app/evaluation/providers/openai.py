@@ -153,5 +153,18 @@ class OpenAIProvider(JudgeProvider):
             logger.warning("Dangerous tools scan failed: %s", e)
             return {"dangerous_tools": [], "reasoning": "Judge call failed"}
 
+    async def embed(self, text: str) -> list[float]:
+        logger.info("Generating embedding via OpenAI text-embedding-3-small")
+        try:
+            response = await self._client.embeddings.create(
+                model="text-embedding-3-small", input=text
+            )
+            return response.data[0].embedding
+        except Exception:
+            logger.warning("OpenAI embedding failed — falling back to hash embedding")
+            from app.core.embeddings import _hash_embedding
+
+            return _hash_embedding(text)
+
     async def close(self) -> None:
         await self._client.close()

@@ -7,7 +7,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from app.core.models import CertificationDecision, Tier
+from app.core.embeddings import text_to_embedding
+from app.core.models import CertificationDecision, RegistryEntry, Tier
 from app.evaluation.metrics import run_full_evaluation
 from app.evaluation.providers import create_judge
 from app.evaluation.scoring import (
@@ -19,7 +20,7 @@ from app.evaluation.scoring import (
 )
 from app.evaluation.validation import validate_skill
 from app.pipeline.loader import WorkspaceData, load_workspace
-from app.pipeline.registry import RegistryStore, check_overlap
+from app.pipeline.registry import SQLiteRegistryStore, check_overlap
 from app.pipeline.results_store import (
     PipelineResults,
     delete_results,
@@ -51,7 +52,7 @@ async def run_pipeline(data: WorkspaceData) -> PipelineResults:
     app_logger.setLevel(logging.INFO)
     app_logger.addHandler(handler)
 
-    store = RegistryStore()
+    store = SQLiteRegistryStore()
     judge = create_judge()
 
     try:
@@ -80,7 +81,7 @@ async def run_pipeline(data: WorkspaceData) -> PipelineResults:
         logger.info("Validation passed")
 
         logger.info("Stage 3: Registry overlap check")
-        overlap = await check_overlap(data.skill, store)
+        overlap = await check_overlap(data.skill, store, judge=judge)
         logger.info(
             "Overlap check done — similarity=%.4f overlap=%s",
             overlap.similarity_score,
@@ -117,6 +118,17 @@ async def run_pipeline(data: WorkspaceData) -> PipelineResults:
             reasons=reasons,
             evaluation=eval_result,
         )
+
+        embedding = text_to_embedding(data.skill.description, judge=judge)
+        entry = RegistryEntry(
+            skill_name=data.skill.name,
+            description=data.skill.description,
+            metadata=data.skill.metadata.model_dump(),
+            embedding=embedding,
+            certification=decision,
+            evaluation=eval_result,
+        )
+        store.upsert(entry)
 
         return PipelineResults(
             validation=validation,

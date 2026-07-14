@@ -186,5 +186,15 @@ class AnthropicProvider(JudgeProvider):
             logger.warning("Dangerous tools scan failed: %s", e)
             return {"dangerous_tools": [], "reasoning": "Judge call failed"}
 
+    async def embed(self, text: str) -> list[float]:
+        logger.warning(
+            "Anthropic does not provide an embedding API. "
+            "Using n-gram hash fallback — consider using a provider with native "
+            "embeddings (gemini, openai, ollama) for better overlap detection."
+        )
+        from app.core.embeddings import _hash_embedding
+
+        return _hash_embedding(text)
+
     async def close(self) -> None:
         await self._client.close()

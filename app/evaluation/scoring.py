@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from app.core.config import settings
 from app.core.models import (
     EvaluationResult,
     OverlapResult,
@@ -12,26 +13,55 @@ from app.core.models import (
 
 logger = logging.getLogger(__name__)
 
-TIER_THRESHOLDS: dict[Tier, dict[str, float]] = {
-    Tier.PREMIUM: {
-        "recall": 0.9,
-        "false_trigger_rate_max": 0.1,
-        "avg_pass_rate": 0.9,
-        "min_final_score": 0.9,
-    },
-    Tier.GOLD: {
-        "recall": 0.8,
-        "false_trigger_rate_max": 0.2,
-        "avg_pass_rate": 0.8,
-        "min_final_score": 0.8,
-    },
-    Tier.SILVER: {
-        "recall": 0.7,
-        "false_trigger_rate_max": 0.3,
-        "avg_pass_rate": 0.7,
-        "min_final_score": 0.7,
-    },
-}
+
+def _build_tier_thresholds() -> dict[Tier, dict[str, float]]:
+    """Build tier thresholds from settings."""
+    s = settings
+    return {
+        Tier.PREMIUM: {
+            "recall": s.tier_premium_min_score,
+            "false_trigger_rate_max": 1.0 - s.tier_premium_min_score,
+            "avg_pass_rate": s.tier_premium_min_score,
+            "min_final_score": s.tier_premium_min_score,
+        },
+        Tier.GOLD: {
+            "recall": s.tier_gold_min_score,
+            "false_trigger_rate_max": 1.0 - s.tier_gold_min_score,
+            "avg_pass_rate": s.tier_gold_min_score,
+            "min_final_score": s.tier_gold_min_score,
+        },
+        Tier.SILVER: {
+            "recall": s.tier_silver_min_score,
+            "false_trigger_rate_max": 1.0 - s.tier_silver_min_score,
+            "avg_pass_rate": s.tier_silver_min_score,
+            "min_final_score": s.tier_silver_min_score,
+        },
+    }
+
+
+def _build_stage_weights() -> dict[str, float]:
+    """Build stage weights from settings."""
+    return {
+        "stage_1": settings.weight_stage_1,
+        "stage_2": settings.weight_stage_2,
+        "stage_3": settings.weight_stage_3,
+        "stage_4": settings.weight_stage_4,
+    }
+
+
+def _build_stage_4_weights() -> dict[str, float]:
+    """Build stage 4 sub-weights from settings."""
+    return {
+        "routing": settings.weight_s4_routing,
+        "output_quality": settings.weight_s4_output_quality,
+        "assertion_grading": settings.weight_s4_assertion_grading,
+        "benchmark": settings.weight_s4_benchmark,
+    }
+
+
+TIER_THRESHOLDS: dict[Tier, dict[str, float]] = _build_tier_thresholds()
+STAGE_WEIGHTS: dict[str, float] = _build_stage_weights()
+STAGE_4_WEIGHTS: dict[str, float] = _build_stage_4_weights()
 
 
 def determine_tier(
@@ -93,21 +123,6 @@ def determine_tier(
 
     logger.info("Tier determined: FAIL — %d reasons", len(reasons))
     return Tier.FAIL, reasons
-
-
-STAGE_WEIGHTS = {
-    "stage_1": 0.10,
-    "stage_2": 0.20,
-    "stage_3": 0.10,
-    "stage_4": 0.60,
-}
-
-STAGE_4_WEIGHTS = {
-    "routing": 0.35,
-    "output_quality": 0.25,
-    "assertion_grading": 0.25,
-    "benchmark": 0.15,
-}
 
 
 def _score_stage_1(skill: SkillDefinition | None) -> dict:

@@ -158,5 +158,20 @@ class OllamaProvider(JudgeProvider):
             logger.warning("Dangerous tools scan failed: %s", e)
             return {"dangerous_tools": [], "reasoning": "Judge call failed"}
 
+    async def embed(self, text: str) -> list[float]:
+        logger.info("Generating embedding via Ollama %s", self.model)
+        try:
+            url = f"{self.base_url}/api/embed"
+            payload = {"model": self.model, "input": text}
+            resp = await self._client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            return data["embeddings"][0]
+        except Exception:
+            logger.warning("Ollama embedding failed — falling back to hash embedding")
+            from app.core.embeddings import _hash_embedding
+
+            return _hash_embedding(text)
+
     async def close(self) -> None:
         await self._client.aclose()
