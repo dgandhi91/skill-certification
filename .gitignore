@@ -10,5 +10,6 @@ venv/
 .mypy_cache/
 .pytest_cache/
 results/
+registry.db
 .claude/settings.local.json
 .DS_Store

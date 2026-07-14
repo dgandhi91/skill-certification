@@ -154,6 +154,22 @@ class GeminiProvider(JudgeProvider):
             logger.warning("Dangerous tools scan failed — returning empty")
             return {"dangerous_tools": [], "reasoning": "Judge call failed"}
 
+    async def embed(self, text: str) -> list[float]:
+        logger.info("Generating embedding via Gemini text-embedding-004")
+
+        def _embed():
+            result = self._client.models.embed_content(
+                model="text-embedding-004", contents=text
+            )
+            return result.embeddings[0].values
+
+        try:
+            return await asyncio.to_thread(_embed)
+        except Exception:
+            logger.warning("Gemini embedding failed — falling back to hash embedding")
+            from app.core.embeddings import _hash_embedding
+
+            return _hash_embedding(text)
+
     async def close(self) -> None:
-        # No cleanup needed for the SDK-based implementation
         pass

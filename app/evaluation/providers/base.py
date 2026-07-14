@@ -109,6 +109,22 @@ class JudgeProvider(ABC):
         pass
 
     @abstractmethod
+    async def embed(self, text: str) -> list[float]:
+        """
+        Generate a semantic embedding vector for the given text.
+
+        Used by the registry overlap check (Stage 3) to compute cosine
+        similarity between skill descriptions.
+
+        Args:
+            text: The text to embed
+
+        Returns:
+            list[float]: Embedding vector
+        """
+        pass
+
+    @abstractmethod
     async def close(self) -> None:
         """Cleanup resources (close HTTP clients, etc.)."""
         pass
