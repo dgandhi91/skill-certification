@@ -147,6 +147,19 @@ class SQLiteRegistryStore:
         logger.info("Cleared all registry entries")
 
 
+def create_registry_store() -> InMemoryRegistryStore | SQLiteRegistryStore:
+    """Create the appropriate registry store based on configuration.
+
+    Returns SQLiteRegistryStore when REGISTRY_DB_PATH is set, otherwise
+    InMemoryRegistryStore for lightweight on-the-fly evaluation.
+    """
+    if settings.registry_db_path:
+        logger.info("Using persistent registry: %s", settings.registry_db_path)
+        return SQLiteRegistryStore(db_path=settings.registry_db_path)
+    logger.info("Using in-memory registry (set REGISTRY_DB_PATH for persistence)")
+    return InMemoryRegistryStore()
+
+
 async def check_overlap(
     skill: SkillDefinition,
     store: InMemoryRegistryStore | SQLiteRegistryStore,

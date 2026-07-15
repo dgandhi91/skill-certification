@@ -16,7 +16,7 @@ from app.evaluation.metrics import run_full_evaluation
 from app.evaluation.providers import JudgeProvider, create_judge
 from app.evaluation.scoring import compute_final_score, determine_tier
 from app.evaluation.validation import validate_skill
-from app.pipeline.registry import RegistryStore, check_overlap
+from app.pipeline.registry import RegistryStore, check_overlap, create_registry_store
 
 logger = logging.getLogger(__name__)
 

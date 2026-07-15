@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # Shared settings
     similarity_threshold: float = 0.8
-    registry_db_path: str = "registry.db"
+    registry_db_path: str = ""
 
     # Stage weights (must sum to 1.0)
     weight_stage_1: float = 0.10
