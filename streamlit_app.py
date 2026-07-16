@@ -20,7 +20,7 @@ from app.evaluation.scoring import (
 )
 from app.evaluation.validation import validate_skill
 from app.pipeline.loader import WorkspaceData, load_workspace
-from app.pipeline.registry import SQLiteRegistryStore, check_overlap
+from app.pipeline.registry import check_overlap, create_registry_store
 from app.pipeline.results_store import (
     PipelineResults,
     delete_results,
@@ -52,7 +52,7 @@ async def run_pipeline(data: WorkspaceData) -> PipelineResults:
     app_logger.setLevel(logging.INFO)
     app_logger.addHandler(handler)
 
-    store = SQLiteRegistryStore()
+    store = create_registry_store()
     judge = create_judge()
 
     try:
